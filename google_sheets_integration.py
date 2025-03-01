@@ -86,13 +86,17 @@ def find_first_empty_row(service, spreadsheet_id, column_range):
 
     return len(values) + 1  # If no empty row found, return the next row
 
-def write_data_to_sheet(service, spreadsheet_id, data):
+def write_data_to_sheet(service, spreadsheet_id, data, sheet_name):
     """Append data to a Google Sheet starting from the first empty row in column A."""
-    # Find the first empty row in column A
-    first_empty_row = find_first_empty_row(service, spreadsheet_id, 'TABLEAU DÉPENSES!A:A')
+    if sheet_name == 'Devis':
+        # Start appending from row 1223 for the "Devis" sheet
+        first_empty_row = 1223
+    else:
+        # Find the first empty row in column A for other sheets
+        first_empty_row = find_first_empty_row(service, spreadsheet_id, f'{sheet_name}!A:A')
 
     # Prepare the range for appending data
-    append_range = f'TABLEAU DÉPENSES!A{first_empty_row}'
+    append_range = f'{sheet_name}!A{first_empty_row}'
 
     body = {
         'values': data
@@ -109,12 +113,56 @@ def map_json_depenses_to_sheet(json_data):
     mapped_data = []
     for item in json_data:
         row = [
-            item.get('id'),
-            item.get('supplier_name'),
             item.get('date'),
-            item.get('total_amount'),
+            item.get('supplier_name'),
+            '',
+            '',
+            '',
             item.get('pre_tax_amount'),
-            # Add more fields as needed
+            item.get('total_amount'),
+            item.get('pre_tax_amount')     # Add more fields as needed
+        ]
+        mapped_data.append(row)
+    return mapped_data
+
+def map_json_invoices_to_sheet(json_data):
+    """Map JSON data extracted from invoices to a format suitable for Google Sheets."""
+    mapped_data = []
+    for item in json_data:
+        row = [
+            item.get('date'),
+            '',
+            '',
+            '',
+            '',
+            item.get('pre_tax_amount'),
+            item.get('discounts', {}).get('amount_with_tax'),
+            item.get('total'),
+            item.get('margin'),
+            '',
+            item.get('company', {}).get('name'),
+            '',
+            item.get('number'),
+            item.get('paid_date'),
+            '',
+            '',
+            item.get('business_user'),
+            item.get('paid_date')
+        ]
+        mapped_data.append(row)
+    return mapped_data
+
+def map_json_devis_to_sheet(json_data):
+    """Map JSON data extracted from invoices to a format suitable for Google Sheets."""
+    mapped_data = []
+    for item in json_data:
+        row = [
+            '',
+            item.get('date'),
+            item.get('date'),
+            item.get('number'),
+            item.get('title'),
+            item.get('pre_tax_amount')
         ]
         mapped_data.append(row)
     return mapped_data
@@ -127,13 +175,26 @@ if __name__ == "__main__":
     # Test the connection
     test_connection(service, spreadsheet_id)
 
-    # Delete empty rows in the specified range
-    delete_empty_rows(service, spreadsheet_id, 'TABLEAU DÉPENSES')
-
-    # Load your JSON data
+    # Load your JSON data for depenses
     with open('axonaut_depenses.json') as f:
-        json_data = json.load(f)
+        json_data_depenses = json.load(f)
 
-    # Map and write data to Google Sheets
-    data_to_write = map_json_depenses_to_sheet(json_data)
-    write_data_to_sheet(service, spreadsheet_id, data_to_write)
+    # Map and write data to the "TABLEAU DÉPENSES" sheet
+    data_to_write_depenses = map_json_depenses_to_sheet(json_data_depenses)
+    write_data_to_sheet(service, spreadsheet_id, data_to_write_depenses, 'TABLEAU DÉPENSES')
+
+    # Load your JSON data for invoices
+    with open('axonaut_invoices.json') as f:
+        json_data_invoices = json.load(f)
+
+    # Map and write data to the "TABLEAU ENTRÉES" sheet
+    data_to_write_invoices = map_json_invoices_to_sheet(json_data_invoices)
+    write_data_to_sheet(service, spreadsheet_id, data_to_write_invoices, 'TABLEAU ENTRÉES')
+
+    # Load your JSON data for devis
+    with open('axonaut_devis.json') as f:
+        json_data_devis = json.load(f)
+
+    # Map and write data to the "Devis" sheet
+    data_to_write_devis = map_json_devis_to_sheet(json_data_devis)
+    write_data_to_sheet(service, spreadsheet_id, data_to_write_devis, 'Devis')
